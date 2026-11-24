@@ -1,0 +1,21 @@
+name: RPGPlugin
+version: 1.0.0
+main: com.rpgplugin.RPGPlugin
+api-version: "1.21"
+description: Custom RPG features for the server.
+commands:
+  rpg:
+    description: Opens the RPG menu to upgrade stats.
+    usage: /rpg
+  adminrpg:
+    description: Admin commands.
+    usage: /adminrpg
+    permission: rpg.admin
+  rpgfly:
+    description: Ép hiệu ứng bay cho vật phẩm cầm trên tay.
+    usage: /rpgfly
+    permission: rpg.admin
+  rpginf:
+    description: Ép hiệu ứng vô hạn cho vật phẩm cầm trên tay.
+    usage: /rpginf
+    permission: rpg.admin
