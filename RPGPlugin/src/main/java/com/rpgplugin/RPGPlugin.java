@@ -74,8 +74,16 @@ public class RPGPlugin extends JavaPlugin {
 
     public static void applyTrueInvisibility(LivingEntity entity, long durationMs) {
         long expire = System.currentTimeMillis() + durationMs;
-        entity.setMetadata("true_invisibility", new FixedMetadataValue(RPGPlugin.getInstance(), expire));
+        RPGPlugin inst = RPGPlugin.getInstance();
+        entity.setMetadata("true_invisibility", new FixedMetadataValue(inst, expire));
         trueInvisibleEntities.add(entity);
+        if (inst != null) {
+            for (Player p : inst.getServer().getOnlinePlayers()) {
+                if (!p.equals(entity)) {
+                    p.hideEntity(inst, entity);
+                }
+            }
+        }
     }
 
     @Override

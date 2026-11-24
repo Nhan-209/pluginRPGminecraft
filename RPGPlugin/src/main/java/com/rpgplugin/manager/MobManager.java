@@ -20,6 +20,7 @@ import org.bukkit.entity.Evoker;
 import org.bukkit.entity.Guardian;
 import org.bukkit.entity.IronGolem;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Phantom;
 import org.bukkit.entity.Pillager;
@@ -104,20 +105,22 @@ public class MobManager {
             }
         }, 20L, 20L);
 
-        // Fast Task (4 ticks = 0.2s) with probabilities scaled to preserve >= average trigger rate
+        // Fast Task (2 ticks = 0.1s) - original burst attack cadence
         Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             for (World w : Bukkit.getWorlds()) {
                 if (w.getPlayers().isEmpty()) continue;
 
-                for (LivingEntity e : w.getLivingEntities()) {
-                    if (e instanceof IronGolem golem) {
-                        if (golem.getTarget() != null && golem.getLocation().distanceSquared(golem.getTarget().getLocation()) < 9.0) {
-                            if (Math.random() < 0.36) {
+                for (Mob mob : w.getEntitiesByClass(Mob.class)) {
+                    if (mob.getTarget() == null) continue;
+
+                    if (mob instanceof IronGolem golem) {
+                        if (golem.getLocation().distanceSquared(golem.getTarget().getLocation()) < 9.0) {
+                            if (Math.random() < 0.2) {
                                 double dmg = Compat.getAttributeValue(golem, Compat.ATTACK_DAMAGE, 15.0) * 0.5;
                                 golem.getTarget().damage(dmg, golem);
                             }
                         }
-                    } else if (e instanceof Warden warden && !e.hasMetadata("pet_owner")) {
+                    } else if (mob instanceof Warden warden && !mob.hasMetadata("pet_owner")) {
                         LivingEntity target = warden.getTarget();
                         if (target instanceof Player) {
                             Location wLoc = warden.getLocation();
@@ -156,9 +159,9 @@ public class MobManager {
                                 }
                             }
                         }
-                    } else if (e instanceof Snowman snowman) {
+                    } else if (mob instanceof Snowman snowman) {
                         LivingEntity target = snowman.getTarget();
-                        if (target != null && target.isValid() && snowman.hasLineOfSight(target)) {
+                        if (target.isValid() && snowman.hasLineOfSight(target)) {
                             Location sLoc = snowman.getLocation();
                             Location tLoc = target.getLocation();
                             double distSq = sLoc.distanceSquared(tLoc);
@@ -174,7 +177,7 @@ public class MobManager {
                                 snowman.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 40, 0));
                                 snowman.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 40, 1));
 
-                                if (Math.random() < 0.36) {
+                                if (Math.random() < 0.2) {
                                     Block targetFeet = tLoc.getBlock();
                                     if (!targetFeet.getType().isSolid() && targetFeet.getType() != Material.WATER && targetFeet.getType() != Material.LAVA) {
                                         targetFeet.setType(Material.POWDER_SNOW);
@@ -201,21 +204,19 @@ public class MobManager {
                                 }
                             }
                         }
-                    } else if (e instanceof Enderman enderman) {
-                        if (enderman.getTarget() != null) {
-                            Location eLoc = enderman.getLocation();
-                            Location tLoc = enderman.getTarget().getLocation();
-                            if (tLoc.getY() - eLoc.getY() >= 2.0 && eLoc.distanceSquared(tLoc) < 225.0) {
-                                if (((Entity) enderman).isOnGround()) {
-                                    Block blockAtFeet = eLoc.getBlock();
-                                    enderman.teleport(eLoc.clone().add(0, 1.1, 0));
-                                    blockAtFeet.setType(Material.END_STONE);
-                                }
+                    } else if (mob instanceof Enderman enderman) {
+                        Location eLoc = enderman.getLocation();
+                        Location tLoc = enderman.getTarget().getLocation();
+                        if (tLoc.getY() - eLoc.getY() >= 2.0 && eLoc.distanceSquared(tLoc) < 225.0) {
+                            if (((Entity) enderman).isOnGround()) {
+                                Block blockAtFeet = eLoc.getBlock();
+                                enderman.teleport(eLoc.clone().add(0, 1.1, 0));
+                                blockAtFeet.setType(Material.END_STONE);
                             }
                         }
-                    } else if (e instanceof ElderGuardian guardian) {
-                        if (guardian.getTarget() != null && guardian.hasLineOfSight(guardian.getTarget())) {
-                            if (Math.random() < 0.36) {
+                    } else if (mob instanceof ElderGuardian guardian) {
+                        if (guardian.hasLineOfSight(guardian.getTarget())) {
+                            if (Math.random() < 0.2) {
                                 LivingEntity target = guardian.getTarget();
                                 double dmg = Compat.getAttributeValue(guardian, Compat.ATTACK_DAMAGE, 8.0);
                                 target.damage(dmg, guardian);
@@ -223,24 +224,24 @@ public class MobManager {
                                 target.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 60, 1));
                                 target.getWorld().strikeLightning(target.getLocation());
 
-                                if (Math.random() < 0.10) {
+                                if (Math.random() < 0.05) {
                                     for (int i = 0; i < 3; i++) {
                                         guardian.getWorld().spawnEntity(guardian.getLocation(), EntityType.GUARDIAN);
                                     }
                                 }
                             }
                         }
-                    } else if (e instanceof Guardian guardian) {
+                    } else if (mob instanceof Guardian guardian) {
                         Compat.setAttributeBase(guardian, Compat.MOVEMENT_SPEED, 0.7);
-                        if (guardian.getTarget() != null && guardian.hasLineOfSight(guardian.getTarget())) {
-                            if (Math.random() < 0.55) {
+                        if (guardian.hasLineOfSight(guardian.getTarget())) {
+                            if (Math.random() < 0.33) {
                                 double dmg = Compat.getAttributeValue(guardian, Compat.ATTACK_DAMAGE, 6.0);
                                 guardian.getTarget().damage(dmg, guardian);
                             }
                         }
-                    } else if (e instanceof Pillager pillager) {
-                        if (pillager.getTarget() != null && pillager.hasLineOfSight(pillager.getTarget())) {
-                            if (Math.random() < 0.19) {
+                    } else if (mob instanceof Pillager pillager) {
+                        if (pillager.hasLineOfSight(pillager.getTarget())) {
+                            if (Math.random() < 0.1) {
                                 Arrow arrow = pillager.launchProjectile(Arrow.class);
                                 Location from = pillager.getLocation().add(0, pillager.getHeight(), 0);
                                 Location to = pillager.getTarget().getLocation().add(0, pillager.getTarget().getHeight() / 2, 0);
@@ -248,9 +249,9 @@ public class MobManager {
                                 arrow.setVelocity(dir.multiply(2.0));
                             }
                         }
-                    } else if (e instanceof Shulker shulker) {
-                        if (shulker.getTarget() != null && shulker.hasLineOfSight(shulker.getTarget())) {
-                            if (Math.random() < 0.36) {
+                    } else if (mob instanceof Shulker shulker) {
+                        if (shulker.hasLineOfSight(shulker.getTarget())) {
+                            if (Math.random() < 0.2) {
                                 ShulkerBullet bullet = shulker.launchProjectile(ShulkerBullet.class);
                                 Location from = shulker.getLocation().add(0, shulker.getHeight() / 2, 0);
                                 Location to = shulker.getTarget().getLocation().add(0, shulker.getTarget().getHeight() / 2, 0);
@@ -258,17 +259,17 @@ public class MobManager {
                                 bullet.setVelocity(dir.multiply(2.5));
                             }
                         }
-                    } else if (e instanceof Phantom phantom) {
+                    } else if (mob instanceof Phantom phantom) {
                         Compat.setAttributeBase(phantom, Compat.FLYING_SPEED, 1.5);
                         Compat.setAttributeBase(phantom, Compat.MOVEMENT_SPEED, 1.5);
-                        if (phantom.getTarget() != null && Math.random() < 0.36) {
+                        if (Math.random() < 0.2) {
                             Vector dir = Compat.safeDirection(phantom.getLocation(), phantom.getTarget().getLocation());
                             phantom.setVelocity(dir.multiply(1.5));
                         }
                     }
                 }
             }
-        }, 4L, 4L);
+        }, 2L, 2L);
     }
 
     public void scaleMob(LivingEntity entity) {
@@ -426,6 +427,11 @@ public class MobManager {
             Compat.setAttributeBase(entity, Compat.MOVEMENT_SPEED, 0.45);
         } else if (entity instanceof Vindicator) {
             Compat.setAttributeBase(entity, Compat.MOVEMENT_SPEED, 0.42);
+        } else if (entity instanceof Guardian && !(entity instanceof ElderGuardian)) {
+            Compat.setAttributeBase(entity, Compat.MOVEMENT_SPEED, 0.7);
+        } else if (entity instanceof Phantom) {
+            Compat.setAttributeBase(entity, Compat.FLYING_SPEED, 1.5);
+            Compat.setAttributeBase(entity, Compat.MOVEMENT_SPEED, 1.5);
         }
     }
 
