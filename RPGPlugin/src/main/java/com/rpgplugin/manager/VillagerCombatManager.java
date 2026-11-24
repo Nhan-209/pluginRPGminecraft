@@ -4,9 +4,12 @@ import com.rpgplugin.RPGPlugin;
 import com.rpgplugin.util.Compat;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
+import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.IronGolem;
@@ -38,9 +41,11 @@ public class VillagerCombatManager implements Listener {
 
     private final RPGPlugin plugin;
     private final Map<String, Long> guardCooldowns = new ConcurrentHashMap<>();
+    private final NamespacedKey rageSpeedKey;
 
     public VillagerCombatManager(RPGPlugin plugin) {
         this.plugin = plugin;
+        this.rageSpeedKey = new NamespacedKey(plugin, "villager_rage_speed");
         startTasks();
     }
 
@@ -118,10 +123,12 @@ public class VillagerCombatManager implements Listener {
                 villager.setMetadata("villager_enraged_target", new FixedMetadataValue(plugin, playerUuid));
                 villager.setMetadata("villager_enraged_expire", new FixedMetadataValue(plugin, now + ENRAGE_DURATION_MS));
 
-                if (!villager.hasMetadata("villager_base_speed")) {
-                    double baseSpeed = Compat.getAttributeBase(villager, Compat.MOVEMENT_SPEED, 0.5);
-                    villager.setMetadata("villager_base_speed", new FixedMetadataValue(plugin, baseSpeed));
-                    Compat.setAttributeBase(villager, Compat.MOVEMENT_SPEED, baseSpeed * 1.70);
+                if (Compat.MOVEMENT_SPEED != null) {
+                    AttributeInstance speedAttr = villager.getAttribute(Compat.MOVEMENT_SPEED);
+                    if (speedAttr != null) {
+                        speedAttr.removeModifier(rageSpeedKey);
+                        speedAttr.addTransientModifier(new AttributeModifier(rageSpeedKey, 0.70, AttributeModifier.Operation.ADD_SCALAR));
+                    }
                 }
 
                 notifyNearby(villager, player, "§c§l[Dân Làng] §f\"Nói không nghe! Đứng lại đó cho tao!\"");
@@ -426,10 +433,11 @@ public class VillagerCombatManager implements Listener {
     private void calmDownVillager(Villager villager) {
         villager.removeMetadata("villager_enraged_target", plugin);
         villager.removeMetadata("villager_enraged_expire", plugin);
-        if (villager.hasMetadata("villager_base_speed")) {
-            double baseSpeed = villager.getMetadata("villager_base_speed").get(0).asDouble();
-            Compat.setAttributeBase(villager, Compat.MOVEMENT_SPEED, baseSpeed);
-            villager.removeMetadata("villager_base_speed", plugin);
+        if (Compat.MOVEMENT_SPEED != null) {
+            AttributeInstance speedAttr = villager.getAttribute(Compat.MOVEMENT_SPEED);
+            if (speedAttr != null) {
+                speedAttr.removeModifier(rageSpeedKey);
+            }
         }
     }
 

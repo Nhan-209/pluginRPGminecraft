@@ -74,7 +74,7 @@ public class MobListener implements Listener {
         if (isMiniBossType) {
             if (!mobManager.canSpawnMiniBoss(entity.getLocation())) {
                 if (event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.NATURAL
-                        || event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.CHUNK_GEN) {
+                        || event.getSpawnReason().name().equals("CHUNK_GEN")) {
                     event.setCancelled(true);
                     return;
                 }

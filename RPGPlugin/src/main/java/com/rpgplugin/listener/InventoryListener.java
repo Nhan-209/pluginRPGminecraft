@@ -99,7 +99,9 @@ public class InventoryListener implements Listener {
     public void onInventoryDrag(InventoryDragEvent event) {
         if (event.getInventory().getHolder() instanceof StatsGUI.StatsMenuHolder) return;
         RPGPlugin.getInstance().getServer().getScheduler().runTaskLater(RPGPlugin.getInstance(), () -> {
+            int countSlots = event.getView().countSlots();
             for (int slot : event.getRawSlots()) {
+                if (slot < 0 || slot >= countSlots) continue;
                 ItemStack slotItem = event.getView().getItem(slot);
                 if (slotItem != null && slotItem.getType().getMaxDurability() == 0 && slotItem.getAmount() < 99) {
                     stripInfinite(slotItem);
