@@ -33,6 +33,8 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -117,17 +119,19 @@ public class PlayerListener implements Listener {
 
         int mobLevel = Compat.parseEntityLevel(entity);
         double maxHp = Compat.getAttributeValue(entity, Compat.MAX_HEALTH, 20.0);
-        long xp = (long) Math.max(5.0, (mobLevel * 8.0) + (maxHp * 0.5));
+        double baseXp = Math.max(5.0, (mobLevel * 8.0) + (maxHp * 0.5));
 
+        int mult = 1;
         boolean isEndermiteFatherP2 = "father".equals(EndermiteBossManager.getRole(entity))
                 && EndermiteBossManager.getPhase(entity) == 2;
         if (isEndermiteFatherP2 || entity instanceof Wither || entity instanceof EnderDragon
                 || (entity instanceof Warden && !entity.hasMetadata("is_minion") && !entity.hasMetadata("pet_owner"))) {
-            xp *= 8;
+            mult = 8;
         } else if (entity.hasMetadata("is_mini_boss") || entity.hasMetadata("is_mini_boss_bear")) {
-            xp *= 3;
+            mult = 3;
         }
 
+        BigInteger xp = BigDecimal.valueOf(baseXp).multiply(BigDecimal.valueOf(mult)).toBigInteger();
         dataManager.addExperience(killer, xp);
     }
 

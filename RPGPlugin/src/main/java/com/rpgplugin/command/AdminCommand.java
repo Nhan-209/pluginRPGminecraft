@@ -13,6 +13,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.math.BigInteger;
+
 public class AdminCommand implements CommandExecutor {
 
     @Override
@@ -44,7 +46,7 @@ public class AdminCommand implements CommandExecutor {
                     if (data != null) {
                         synchronized (data) {
                             data.setLevel(1);
-                            data.setExperience(0L);
+                            data.setExperience(BigInteger.ZERO);
                             data.setStatPoints(0);
                             data.resetAllStats();
                         }
@@ -65,7 +67,7 @@ public class AdminCommand implements CommandExecutor {
                         PlayerData data = RPGPlugin.getInstance().getPlayerDataManager().getPlayerData(target.getUniqueId());
                         if (data != null) {
                             synchronized (data) {
-                                data.setLevel(Math.max(1, data.getLevel() + amount));
+                                data.addLevel(amount);
                             }
                             RPGPlugin.getInstance().getPlayerDataManager().validateAndFixStats(data);
                             RPGPlugin.getInstance().getPlayerDataManager().applyStatsToPlayer(target, data);

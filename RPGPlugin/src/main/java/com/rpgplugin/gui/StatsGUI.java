@@ -46,9 +46,14 @@ public class StatsGUI implements Listener {
         synchronized (data) {
             double totalMaxHp = 20.0 + data.getBonusMaxHealth();
 
+            String xpDisplay = data.getLevel() >= PlayerData.MAX_LEVEL
+                    ? "§aMAX LEVEL (" + PlayerData.MAX_LEVEL + ")"
+                    : "§b" + PlayerData.formatBigNumber(data.getExperience())
+                            + " §7/ §b" + PlayerData.formatBigNumber(data.getRequiredExperience());
+
             inv.setItem(4, createGuiItem(Material.BOOK, "§e§lHồ Sơ Nhân Vật: " + player.getName(),
                     "§7Level: §a" + data.getLevel(),
-                    "§7XP: §b" + data.getExperience() + " §7/ §b" + data.getRequiredExperience(),
+                    "§7XP: " + xpDisplay,
                     "§7Điểm tiềm năng: §e" + data.getStatPoints(),
                     "§8-----------------------------",
                     "§c❤ Máu tối đa: §f" + df.format(totalMaxHp),
@@ -211,43 +216,61 @@ public class StatsGUI implements Listener {
                 pointsToAdd = Math.min(10, data.getStatPoints());
             }
 
+            int currentStat = switch (slot) {
+                case 10 -> data.getMaxHealthStats();
+                case 12 -> data.getDamageStats();
+                case 14 -> data.getDefenseStats();
+                case 16 -> data.getCritStats();
+                case 28 -> data.getVitalityStats();
+                case 30 -> data.getSpeedStats();
+                case 32 -> data.getMiningSpeedStats();
+                case 34 -> data.getHungerResistance();
+                default -> 0;
+            };
+            int room = Integer.MAX_VALUE - currentStat;
+            int toAdd = Math.min(pointsToAdd, room);
+            if (toAdd <= 0) {
+                player.sendMessage("§cChỉ số này đã đạt giới hạn tối đa!");
+                return;
+            }
+
             switch (slot) {
                 case 10:
-                    data.addMaxHealthStats(pointsToAdd);
+                    data.addMaxHealthStats(toAdd);
                     upgraded = true;
                     break;
                 case 12:
-                    data.addDamageStats(pointsToAdd);
+                    data.addDamageStats(toAdd);
                     upgraded = true;
                     break;
                 case 14:
-                    data.addDefenseStats(pointsToAdd);
+                    data.addDefenseStats(toAdd);
                     upgraded = true;
                     break;
                 case 16:
-                    data.addCritStats(pointsToAdd);
+                    data.addCritStats(toAdd);
                     upgraded = true;
                     break;
                 case 28:
-                    data.addVitalityStats(pointsToAdd);
+                    data.addVitalityStats(toAdd);
                     upgraded = true;
                     break;
                 case 30:
-                    data.addSpeedStats(pointsToAdd);
+                    data.addSpeedStats(toAdd);
                     upgraded = true;
                     break;
                 case 32:
-                    data.addMiningSpeedStats(pointsToAdd);
+                    data.addMiningSpeedStats(toAdd);
                     upgraded = true;
                     break;
                 case 34:
-                    data.addHungerResistance(pointsToAdd);
+                    data.addHungerResistance(toAdd);
                     upgraded = true;
                     break;
             }
 
             if (upgraded) {
-                data.consumeStatPoints(pointsToAdd);
+                data.consumeStatPoints(toAdd);
             }
         }
 

@@ -109,7 +109,7 @@ Các sinh vật dưới đây hiện **chưa có kỹ năng/hành vi riêng bi�
 ## 4. Hệ thống RPG Người Chơi
 
 ### 4.1. Cấp độ & Kinh nghiệm (`PlayerDataManager` & `PlayerListener`)
-- **Level không giới hạn trần**, XP cần cho mỗi cấp: `100 * 1.1^(Level - 1)`.
+- **Level tới `100,000` (`MAX_LEVEL`) với XP `BigInteger`**: XP cần cho mỗi cấp tính bằng `BigDecimal`/`BigInteger` (`100 * 1.1^(Level - 1)`), loại bỏ hoàn toàn giới hạn `Long.MAX_VALUE` ở ~Lv.411; chống tràn số ở cộng XP, cộng/reset cấp, kiểm tra điểm tiềm năng (`O(1)`) và cộng điểm chỉ số. Lưu YAML dạng chuỗi tương thích ngược 100%.
 - **Điểm tiềm năng mỗi khi lên cấp**: `5 + (Level / 5)` điểm.
 - **Nguồn XP (chỉ tính khi tự tay cày, không tính Creative/Spectator)**:
   - **Đập block tự nhiên** *(có bộ nhớ LRU theo dõi 4096 block do người chơi đặt để chặn exploit đặt-đập farm XP)*: Quặng hiếm (Kim cương, Ngọc lục bảo, Ancient Debris) `15 XP`; Quặng trung (Vàng, Redstone, Lapis, Quartz) `8 XP`; Quặng thường (Sắt, Đồng, Than) `5 XP`; Nông sản chín (Lúa mì, Cà rốt, Khoai tây, Củ dền, Nether Wart, Ca cao, Dưa/Bí) `6 XP`; Gỗ `3 XP`; Block tự nhiên khác `1 XP`. Nhân thêm với hệ số **Mining XP** và **ExpBoost (+50%)**.

@@ -152,9 +152,7 @@ public class RPGPlugin extends JavaPlugin {
                 int maxHp = (int) Compat.getAttributeValue(p, Compat.MAX_HEALTH, 20.0);
                 PlayerData pd = playerDataManager.getPlayerData(p.getUniqueId());
                 int level = pd != null ? pd.getLevel() : 1;
-                double xpPct = (pd != null && pd.getRequiredExperience() > 0)
-                        ? Math.min(99.9, (pd.getExperience() * 100.0) / pd.getRequiredExperience())
-                        : 0.0;
+                double xpPct = pd != null ? pd.getExperienceProgressPercent() : 0.0;
                 String skillBar = playerSkillListener.getCooldownStatus(p.getUniqueId());
                 p.sendActionBar("§c❤ " + hp + "/" + maxHp + "  §a⭐ Lv." + level
                         + " (" + String.format("%.0f", xpPct) + "%)  " + skillBar);

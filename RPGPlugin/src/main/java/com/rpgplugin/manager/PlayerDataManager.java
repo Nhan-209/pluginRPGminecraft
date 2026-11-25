@@ -9,6 +9,8 @@ import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,7 +43,7 @@ public class PlayerDataManager {
             if (file.exists()) {
                 FileConfiguration config = YamlConfiguration.loadConfiguration(file);
                 data.setLevel(config.getInt("level", 1));
-                data.setExperience(config.getLong("experience", 0));
+                data.setExperience(parseExperience(config.get("experience")));
                 data.setStatPoints(config.getInt("statPoints", 0));
 
                 data.setMaxHealthStats(config.getInt("stats.health", 0));
@@ -65,22 +67,28 @@ public class PlayerDataManager {
         return data;
     }
 
+    private BigInteger parseExperience(Object raw) {
+        if (raw == null) return BigInteger.ZERO;
+        try {
+            BigInteger parsed = new BigDecimal(raw.toString().trim()).toBigInteger();
+            return parsed.signum() < 0 ? BigInteger.ZERO : parsed;
+        } catch (NumberFormatException | ArithmeticException e) {
+            return BigInteger.ZERO;
+        }
+    }
+
     public void validateAndFixStats(PlayerData data) {
         synchronized (data) {
-            int expectedTotal = 0;
-            for (int i = 2; i <= data.getLevel(); i++) {
-                expectedTotal += 5 + (i / 5);
-            }
-
-            int currentUsed = data.getTotalUsedPoints();
-            int actualTotal = currentUsed + data.getStatPoints();
+            long expectedTotal = PlayerData.calculateExpectedTotalStatPoints(data.getLevel());
+            long currentUsed = data.getTotalUsedPoints();
+            long actualTotal = currentUsed + (long) data.getStatPoints();
 
             if (actualTotal != expectedTotal) {
                 if (actualTotal < expectedTotal) {
-                    data.setStatPoints(data.getStatPoints() + (expectedTotal - actualTotal));
+                    data.addStatPoints(expectedTotal - actualTotal);
                 } else {
                     data.resetAllStats();
-                    data.setStatPoints(expectedTotal);
+                    data.setStatPoints((int) Math.min(Integer.MAX_VALUE, expectedTotal));
                 }
             }
         }
@@ -99,7 +107,7 @@ public class PlayerDataManager {
                 return false;
             }
 
-            int used = data.getTotalUsedPoints();
+            long used = data.getTotalUsedPoints();
             if (used <= 0) {
                 player.sendMessage("§e[RPG] Bạn chưa cộng điểm thuộc tính nào để tẩy!");
                 return false;
@@ -125,7 +133,7 @@ public class PlayerDataManager {
             FileConfiguration config = YamlConfiguration.loadConfiguration(file);
 
             config.set("level", data.getLevel());
-            config.set("experience", data.getExperience());
+            config.set("experience", data.getExperience().toString());
             config.set("statPoints", data.getStatPoints());
 
             config.set("stats.health", data.getMaxHealthStats());
@@ -207,6 +215,11 @@ public class PlayerDataManager {
 
     public void addExperience(Player player, long amount) {
         if (amount <= 0) return;
+        addExperience(player, BigInteger.valueOf(amount));
+    }
+
+    public void addExperience(Player player, BigInteger amount) {
+        if (amount == null || amount.signum() <= 0) return;
         PlayerData data = getPlayerData(player.getUniqueId());
         if (data == null) return;
 
@@ -215,14 +228,27 @@ public class PlayerDataManager {
         int statPoints;
 
         synchronized (data) {
+            if (data.getLevel() >= PlayerData.MAX_LEVEL) {
+                data.setExperience(BigInteger.ZERO);
+                return;
+            }
+
             data.addExperience(amount);
-            while (data.getExperience() >= data.getRequiredExperience()) {
-                data.setExperience(data.getExperience() - data.getRequiredExperience());
+            while (data.getLevel() < PlayerData.MAX_LEVEL) {
+                BigInteger req = data.getRequiredExperience();
+                if (data.getExperience().compareTo(req) < 0) break;
+
+                data.setExperience(data.getExperience().subtract(req));
                 data.addLevel(1);
                 int pointsToGive = 5 + (data.getLevel() / 5);
                 data.addStatPoints(pointsToGive);
                 leveledUp = true;
             }
+
+            if (data.getLevel() >= PlayerData.MAX_LEVEL) {
+                data.setExperience(BigInteger.ZERO);
+            }
+
             newLevel = data.getLevel();
             statPoints = data.getStatPoints();
         }
