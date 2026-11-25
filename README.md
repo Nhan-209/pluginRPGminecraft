@@ -23,8 +23,9 @@ Plugin RPG tùy biến toàn diện cho server Minecraft **Paper 1.21.1 – 1.21
 Mọi `LivingEntity` (trừ `Player`, minion/pet có metadata `is_minion` hoặc `pet_owner`) khi spawn hoặc ở trong bán kính 40 block quanh người chơi Survival/Adventure đều được gắn cấp độ `[Lv. X]`:
 
 - **Cấp độ sinh vật thường (`MobManager.scaleMob`)**:
-  - `Level = 1 + (khoảng cách XZ từ tọa độ 0,0 / 50)`.
-  - Giới hạn trần có nhân tính: không vượt quá `Level trung bình người chơi online + 10`.
+  - **Overworld**: `Level = 1 + (khoảng cách XZ từ 0,0 / 50)`, giới hạn trần `Level trung bình người chơi online + 10`.
+  - **Nether**: `max(distLv, avgLv * 0.5)` (vẫn giữ trần `avgLv + 10`).
+  - **The End (chống yếu về late-game)**: Tham chiếu `endRef = max(avgLv, HighestLv * 0.85)`. Tại đảo chính (`<500 block`): tối thiểu `max(30, endRef + 0~10)`; đảo ngoài (`>=500 block`): `max(40, endRef + 10~50)`. Ngoài ra mob The End từ `Lv.50+` được cộng thêm giáp & armor toughness tự nhiên (`Armor` tới `16`, `Toughness` tới `10`).
   - Chỉ số mỗi cấp: **+20% Máu tối đa**, **+10% Sát thương cơ bản**, **+0.2% Tốc độ di chuyển** (trừ `Villager` dùng công thức riêng).
 - **Cấp độ Boss (`MobManager.scaleBoss`)**:
   - `Level = Level cao nhất trong server + ngẫu nhiên (10 ~ 99)`.
@@ -59,7 +60,7 @@ Mọi `LivingEntity` (trừ `Player`, minion/pet có metadata `is_minion` hoặc
 ### 2.3. Quái thù địch (Hostile Mobs)
 | Sinh vật | Cơ chế & Điều chỉnh đã cài đặt |
 |---|---|
-| **Skeleton** | • Tầm phát hiện (`FOLLOW_RANGE`) mở rộng lên **100 block**, tốc độ `0.3`, sát thương x1.5, cầm Bow roll phẩm chất + enchant scale theo gap level.<br>• Mỗi 7 ticks (`0.35s`) khi có tầm nhìn (<20 block): bắn tên bay cực nhanh (`2.5x`), gắn tag `skeleton_fast`, tự kích hoạt **Tàng hình thật ngay lập tức (ẩn cả giáp) trong 1s** mỗi phát bắn + **Kháng lửa 60s**, và tự nhảy lùi nếu Player lại gần (<8 block).<br>• Tên `skeleton_fast` đánh trúng Player: gây **Yếu đuối 10s**, **đánh bật lùi mạnh**, và **hút 50% sát thương thành máu cho Skeleton**. |
+| **Skeleton & Toàn bộ biến thể (`AbstractSkeleton`: Skeleton, Stray, Wither Skeleton, Bogged, Parched)** | • **100% thừa kế toàn bộ cơ chế Skeleton**: Tầm phát hiện **100 block**, tốc độ `0.3`, sát thương x1.5, cầm Bow roll phẩm chất + enchant scale theo gap level.<br>• Mỗi 7 ticks (`0.35s`) khi có tầm nhìn (<20 block): bắn tên bay cực nhanh (`2.5x`), gắn tag `skeleton_fast`, tự kích hoạt **Tàng hình thật ngay lập tức (ẩn cả giáp) trong 1s** mỗi phát bắn + **Kháng lửa 60s**, và tự nhảy lùi nếu Player lại gần (<8 block).<br>• Tên `skeleton_fast` đánh trúng Player: gây **Yếu đuối 10s**, **đánh bật lùi mạnh**, và **hút 50% sát thương thành máu**.<br>• *(Lưu ý: `Wither Skeleton` vẫn giữ thêm tag Mini Boss và chết sinh 2 Blaze).* |
 | **Zombie** *(và các lớp con kế thừa `Zombie`: **Husk**, **Drowned**, **Zombie Villager**, **Zombified Piglin**)* | • Zombie người lớn chậm (`0.15`), Zombie con nhanh (`0.35`), sát thương **x2.0**, giáp gốc **10.0**, cầm **Kiếm Sắt** roll sao + enchant.<br>• Đòn đánh vào Player gây thêm sát thương % máu: người lớn cộng **10% máu hiện tại**, Zombie con cộng **3% máu tối đa**.<br>• Zombie người lớn khi chết (không phải minion): tách thành **2 Zombie con**.<br>• *(Lưu ý: `Mini Zombie` do Ender Dragon gọi đánh gây Làm chậm II 5s và không tự tách đôi khi chết)*. |
 | **Creeper** | • Tốc độ di chuyển tăng lên **0.35**.<br>• Khi phát nổ: sinh thêm **3 quả TNT** sắp nổ (`40` ticks) xung quanh.<br>• **15% Spider** spawn tự nhiên sẽ có Creeper cưỡi trên lưng. |
 | **Spider** *(và **Cave Spider** kế thừa `Spider`)* | • Tốc độ di chuyển tăng lên **0.45**.<br>• **15%** tỉ lệ khi spawn được **Creeper** cưỡi trên lưng.<br>• Đòn đánh trúng Player: đặt **Mạng nhện (`COBWEB`)** ngay chân + gây **Làm chậm II 6s**. |
@@ -76,6 +77,8 @@ Mọi `LivingEntity` (trừ `Player`, minion/pet có metadata `is_minion` hoặc
 | **Vex** | • Đòn đánh trúng Player: gây **Tối tăm + Mù lòa 10s**. |
 | **Witch** | • Khi máu tụt xuống dưới **10%**: triệu hồi **1 Creeper có Speed II**. |
 | **Piglin & Zombified Piglin (`PigZombie`)** | • Khi ở **Nether**, máu tụt dưới **30%** và có Player trong bán kính 10 block: đặt **giường đỏ kích nổ** (`5.0f`) + sinh thêm **1 TNT**. |
+| **Silverfish** | • Tầm phát hiện **100 block**, tốc độ `0.45`, tự truy tìm Player trong 48 block.<br>• **AI nhấp nhả & đánh lén sau lưng**: nếu Player đang nhìn thẳng vào nó, tự né ngang/vòng ra khỏi tầm mắt; luôn tìm cách vòng ra sau lưng rồi áp sát cắn; vừa cắn xong lập tức bật lùi chéo & rút ra xa `8.5` block trong `2.2s` rồi đảo cánh vòng lại.<br>• Đòn đánh trúng Player: gây **Chậm II trong 7s** + **Chóng mặt (`NAUSEA`) 3s**. |
+| **Endermite (Sự kiện Kéo Cả Nhà + Boss Bay)** | • **Endermite thường chết**: **50%** gọi **Endermite Mẹ** (`Scale 2x`, `Lv = HighestPlayerLv + 2`, tốc độ `0.38`, tầm nhìn `80`).<br>• **Endermite Mẹ chết**: triệu hồi **Endermite Bố** (`Scale 4x` = gấp đôi Mẹ, `Lv = HighestPlayerLv + 5`, miễn nhiễm té/ngạt).<br>• **AI Endermite Bố**: Bay 3D lượn vòng quanh Player như Phantom/Rồng Ender, lao xuống đâm nhấp nhả rồi vọt lên trời; mỗi cú đánh trúng giáng **1 tia sét thật** + **Chậm II 5s**.<br>• **Aura Quỳ Xuống** (mỗi 10s ở Phase 1, 7s ở Phase 2): quét vòng tròn hạt hiệu ứng rộng 22 block — mọi Player quét trúng bị **ép hủy bay/Elytra + khóa bay 2.5s + dập mạnh xuống đất**, **Chậm III 5s**, **Tối tăm 1.5s** và dính **2 tia sét thật**.<br>• **Phase 2 (`TAM KHÍ QUY LAI`)**: Khi Endermite Bố Phase 1 chết, lần lượt chat *"Ta không thể thua"*, *"Gia đình vẫn cần ta trả thù"*, *"Thế giới này vẫn cần ta"*, *"TAM KHÍ QUY LAI!"*, hội tụ hạt hiệu ứng trên không trung rồi hồi sinh **gấp 2 lần Máu & Sát thương** ở `Lv = HighestPlayerLv + 10`. Hạ Phase 2 thưởng **x8 Boss XP**, cơ hội nâng sao vũ khí + rơi đồ 5–8 sao. |
 
 ### 2.4. NPC, Golem & Động vật có cơ chế riêng
 | Sinh vật | Cơ chế & Điều chỉnh đã cài đặt |
@@ -98,7 +101,7 @@ Các sinh vật dưới đây hiện **chưa có kỹ năng/hành vi riêng bi�
 
 | Nhóm | Sinh vật chưa có cơ chế riêng |
 |---|---|
-| **Quái thù địch (`Monster` / Hostile)** | • **Stray**, **Bogged** *(và biến thể skeleton mới như Parched)* — chưa có handler riêng vì không kế thừa `Skeleton` trong Bukkit.<br>• **Piglin Brute**, **Hoglin**, **Zoglin**.<br>• **Silverfish**, **Endermite**.<br>• **Illusioner**, **Creaking**.<br>• *(Lưu ý: `Husk`, `Drowned`, `Zombie Villager` hiện dùng chung hành vi của `Zombie`; `Cave Spider` dùng chung hành vi của `Spider` do kế thừa class, chưa có skill tách riêng theo từng loài).* |
+| **Quái thù địch (`Monster` / Hostile)** | • **Piglin Brute**, **Hoglin**, **Zoglin**.<br>• **Illusioner**, **Creaking**.<br>• *(Lưu ý: `Husk`, `Drowned`, `Zombie Villager` hiện dùng chung hành vi của `Zombie`; `Cave Spider` dùng chung hành vi của `Spider` do kế thừa class, chưa có skill tách riêng theo từng loài).* |
 | **NPC phụ & Quái trung lập / Bị động** | • **Wandering Trader**, **Trader Llama**.<br>• **Wolf**, **Bee**, **Goat**, **Fox**, **Dolphin**, **Llama**, **Polar Bear** *(lúc còn sống bình thường chưa có skill riêng — chỉ biến thành Mini Boss khi chết)*, **Mooshroom**.<br>• **Pig**, **Chicken**, **Rabbit**, **Horse**, **Donkey**, **Mule**, **Camel**, **Turtle**, **Frog**, **Axolotl**, **Sniffer**, **Armadillo**, **Allay**, **Cat**, **Ocelot**, **Parrot**, **Bat**, **Squid**, **Glow Squid**, **Strider**, **Cod / Salmon / Pufferfish / Tropical Fish / Tadpole**, **Nautilus / Happy Ghast / Copper Golem** *(nếu xuất hiện trên bản 1.21.11)*. |
 
 ---

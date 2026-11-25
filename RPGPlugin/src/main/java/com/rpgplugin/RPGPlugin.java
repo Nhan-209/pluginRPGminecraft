@@ -15,6 +15,7 @@ import com.rpgplugin.listener.PlayerListener;
 import com.rpgplugin.listener.PlayerSkillListener;
 import com.rpgplugin.listener.ToolEffectListener;
 import com.rpgplugin.listener.VillagerListener;
+import com.rpgplugin.manager.EndermiteBossManager;
 import com.rpgplugin.manager.ItemManager;
 import com.rpgplugin.manager.MobManager;
 import com.rpgplugin.manager.PlayerDataManager;
@@ -28,6 +29,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.entity.AbstractSkeleton;
 import org.bukkit.entity.Animals;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Blaze;
@@ -129,6 +131,7 @@ public class RPGPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(villagerCombatManager, this);
         getServer().getPluginManager().registerEvents(playerSkillListener, this);
         getServer().getPluginManager().registerEvents(new ToolEffectListener(this, itemManager, playerDataManager), this);
+        getServer().getPluginManager().registerEvents(new EndermiteBossManager(this, mobManager, itemManager), this);
 
         new RandomEventManager(this);
 
@@ -253,7 +256,7 @@ public class RPGPlugin extends JavaPlugin {
             for (World world : getServer().getWorlds()) {
                 if (world.getPlayers().isEmpty()) continue;
 
-                for (Skeleton skeleton : world.getEntitiesByClass(Skeleton.class)) {
+                for (AbstractSkeleton skeleton : world.getEntitiesByClass(AbstractSkeleton.class)) {
                     LivingEntity target = skeleton.getTarget();
                     if (target != null) {
                         double distSq = skeleton.getLocation().distanceSquared(target.getLocation());
@@ -355,8 +358,19 @@ public class RPGPlugin extends JavaPlugin {
                     }
                 }
 
+                long now = System.currentTimeMillis();
+                boolean grounded = player.hasMetadata("rpg_grounded_until")
+                        && now < player.getMetadata("rpg_grounded_until").get(0).asLong();
+                if (!grounded && player.hasMetadata("rpg_grounded_until")) {
+                    player.removeMetadata("rpg_grounded_until", this);
+                }
+
                 if (player.getGameMode() != GameMode.CREATIVE && player.getGameMode() != GameMode.SPECTATOR) {
-                    if (hasFlightItem && !player.hasMetadata("rpg_flight_granted")) {
+                    if (grounded) {
+                        player.removeMetadata("rpg_flight_granted", this);
+                        player.setAllowFlight(false);
+                        player.setFlying(false);
+                    } else if (hasFlightItem && !player.hasMetadata("rpg_flight_granted")) {
                         player.setMetadata("rpg_flight_granted", new FixedMetadataValue(this, true));
                         player.setAllowFlight(true);
                     } else if (!hasFlightItem && player.hasMetadata("rpg_flight_granted")) {

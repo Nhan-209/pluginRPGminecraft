@@ -1,6 +1,7 @@
 package com.rpgplugin.listener;
 
 import com.rpgplugin.RPGPlugin;
+import com.rpgplugin.manager.EndermiteBossManager;
 import com.rpgplugin.manager.ItemManager;
 import com.rpgplugin.manager.PlayerDataManager;
 import com.rpgplugin.model.PlayerData;
@@ -118,7 +119,9 @@ public class PlayerListener implements Listener {
         double maxHp = Compat.getAttributeValue(entity, Compat.MAX_HEALTH, 20.0);
         long xp = (long) Math.max(5.0, (mobLevel * 8.0) + (maxHp * 0.5));
 
-        if (entity instanceof Wither || entity instanceof EnderDragon
+        boolean isEndermiteFatherP2 = "father".equals(EndermiteBossManager.getRole(entity))
+                && EndermiteBossManager.getPhase(entity) == 2;
+        if (isEndermiteFatherP2 || entity instanceof Wither || entity instanceof EnderDragon
                 || (entity instanceof Warden && !entity.hasMetadata("is_minion") && !entity.hasMetadata("pet_owner"))) {
             xp *= 8;
         } else if (entity.hasMetadata("is_mini_boss") || entity.hasMetadata("is_mini_boss_bear")) {

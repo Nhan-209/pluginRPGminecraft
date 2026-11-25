@@ -26,6 +26,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.PolarBear;
 import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Ravager;
+import org.bukkit.entity.Silverfish;
 import org.bukkit.entity.Snowball;
 import org.bukkit.entity.Snowman;
 import org.bukkit.entity.Spider;
@@ -312,6 +313,25 @@ public class CombatListener implements Listener {
                     player.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 200, 0));
                 } else if (actualAttacker instanceof Zombie && actualAttacker.hasMetadata("is_minion")) {
                     player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 100, 1));
+                } else if (actualAttacker instanceof Silverfish sf) {
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 140, 1));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 60, 0));
+
+                    long nowMs = System.currentTimeMillis();
+                    sf.setMetadata("sf_retreat_until", new FixedMetadataValue(RPGPlugin.getInstance(), nowMs + 2200L));
+                    int nextSign = sf.hasMetadata("sf_flank_sign") ? -sf.getMetadata("sf_flank_sign").get(0).asInt() : 1;
+                    sf.setMetadata("sf_flank_sign", new FixedMetadataValue(RPGPlugin.getInstance(), nextSign));
+
+                    Vector away = Compat.safeDirection(player.getLocation(), sf.getLocation()).setY(0);
+                    Vector pLook = player.getLocation().getDirection().setY(0);
+                    if (pLook.lengthSquared() > 1e-6) {
+                        pLook = pLook.normalize();
+                    }
+                    Vector side = new Vector(-pLook.getZ() * nextSign, 0, pLook.getX() * nextSign);
+                    Vector escape = away.add(side.multiply(0.8));
+                    if (escape.lengthSquared() > 1e-6) {
+                        sf.setVelocity(escape.normalize().multiply(0.75).setY(0.28));
+                    }
                 }
             }
 

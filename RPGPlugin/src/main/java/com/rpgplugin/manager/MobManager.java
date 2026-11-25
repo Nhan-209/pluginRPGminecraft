@@ -4,11 +4,13 @@ import com.rpgplugin.RPGPlugin;
 import com.rpgplugin.model.PlayerData;
 import com.rpgplugin.util.Compat;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.entity.AbstractSkeleton;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.ElderGuardian;
@@ -28,7 +30,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Sheep;
 import org.bukkit.entity.Shulker;
 import org.bukkit.entity.ShulkerBullet;
-import org.bukkit.entity.Skeleton;
+import org.bukkit.entity.Silverfish;
 import org.bukkit.entity.Snowball;
 import org.bukkit.entity.Snowman;
 import org.bukkit.entity.Spider;
@@ -100,6 +102,22 @@ public class MobManager {
                                 }
                             }
                         }
+                    } else if (e instanceof Silverfish sf) {
+                        if (sf.getTarget() == null || sf.getTarget().isDead()) {
+                            Player nearest = null;
+                            double bestDistSq = 48.0 * 48.0;
+                            for (Player p : w.getPlayers()) {
+                                if (p.getGameMode() != GameMode.SURVIVAL && p.getGameMode() != GameMode.ADVENTURE) continue;
+                                double dSq = p.getLocation().distanceSquared(sf.getLocation());
+                                if (dSq < bestDistSq) {
+                                    bestDistSq = dSq;
+                                    nearest = p;
+                                }
+                            }
+                            if (nearest != null) {
+                                sf.setTarget(nearest);
+                            }
+                        }
                     }
                 }
             }
@@ -107,6 +125,7 @@ public class MobManager {
 
         // Fast Task (2 ticks = 0.1s) - original burst attack cadence
         Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            long now = System.currentTimeMillis();
             for (World w : Bukkit.getWorlds()) {
                 if (w.getPlayers().isEmpty()) continue;
 
@@ -266,10 +285,74 @@ public class MobManager {
                             Vector dir = Compat.safeDirection(phantom.getLocation(), phantom.getTarget().getLocation());
                             phantom.setVelocity(dir.multiply(1.5));
                         }
+                    } else if (mob instanceof Silverfish sf) {
+                        handleSilverfishAI(sf, now);
                     }
                 }
             }
         }, 2L, 2L);
+    }
+
+    private void handleSilverfishAI(Silverfish sf, long now) {
+        if (!(sf.getTarget() instanceof Player player) || !player.isValid() || player.isDead()
+                || player.getWorld() != sf.getWorld()) {
+            return;
+        }
+
+        Location sfLoc = sf.getLocation();
+        Location pLoc = player.getLocation();
+        double distSq = sfLoc.distanceSquared(pLoc);
+        if (distSq > 2500.0) return;
+
+        Vector playerLook = pLoc.getDirection().setY(0);
+        if (playerLook.lengthSquared() < 1e-6) {
+            playerLook = new Vector(0, 0, 1);
+        } else {
+            playerLook = playerLook.normalize();
+        }
+
+        int sign = sf.hasMetadata("sf_flank_sign")
+                ? sf.getMetadata("sf_flank_sign").get(0).asInt()
+                : ((sf.getEntityId() & 1) == 0 ? 1 : -1);
+        Vector sideVec = new Vector(-playerLook.getZ() * sign, 0, playerLook.getX() * sign);
+
+        long retreatUntil = sf.hasMetadata("sf_retreat_until")
+                ? sf.getMetadata("sf_retreat_until").get(0).asLong()
+                : 0L;
+        if (now < retreatUntil) {
+            Location retreatTarget = pLoc.clone()
+                    .subtract(playerLook.clone().multiply(8.5))
+                    .add(sideVec.clone().multiply(4.0));
+            sf.getPathfinder().moveTo(retreatTarget, 1.65);
+            if (distSq < 16.0 && ((Entity) sf).isOnGround()) {
+                Vector dashAway = Compat.safeDirection(pLoc, retreatTarget).setY(0);
+                if (dashAway.lengthSquared() > 1e-6) {
+                    sf.setVelocity(dashAway.normalize().multiply(0.55).setY(0.22));
+                }
+            }
+            return;
+        }
+
+        Vector toSf = sfLoc.toVector().subtract(pLoc.toVector()).setY(0);
+        double dot = toSf.lengthSquared() > 1e-6 ? playerLook.dot(toSf.normalize()) : 0.0;
+
+        if (dot > 0.30 && distSq > 4.0 && distSq < 256.0) {
+            Location flankLoc = pLoc.clone()
+                    .add(sideVec.clone().multiply(4.5))
+                    .subtract(playerLook.clone().multiply(2.5));
+            sf.getPathfinder().moveTo(flankLoc, 1.6);
+            if (((Entity) sf).isOnGround() && Math.random() < 0.25) {
+                Vector scurry = Compat.safeDirection(sfLoc, flankLoc).setY(0);
+                if (scurry.lengthSquared() > 1e-6) {
+                    sf.setVelocity(scurry.normalize().multiply(0.45).setY(0.15));
+                }
+            }
+        } else if (distSq <= 5.76) {
+            sf.getPathfinder().moveTo(player, 1.6);
+        } else {
+            Location backSpot = pLoc.clone().subtract(playerLook.clone().multiply(1.5));
+            sf.getPathfinder().moveTo(backSpot, 1.6);
+        }
     }
 
     public void scaleMob(LivingEntity entity) {
@@ -277,11 +360,27 @@ public class MobManager {
 
         Location loc = entity.getLocation();
         double distance = Math.sqrt(loc.getX() * loc.getX() + loc.getZ() * loc.getZ());
-        int level = 1 + (int) (distance / 50);
+        int avgLv = getAveragePlayerLevel();
+        int highestLv = getHighestPlayerLevel();
+        World.Environment env = loc.getWorld().getEnvironment();
 
-        int avgPlayerLevel = getAveragePlayerLevel();
-        if (level > avgPlayerLevel + 10) {
-            level = avgPlayerLevel + 10;
+        int level;
+        if (env == World.Environment.THE_END) {
+            int endRef = Math.max(avgLv, (int) Math.round(highestLv * 0.85));
+            if (distance < 500.0) {
+                level = Math.max(30, endRef + (int) (Math.random() * 11));
+            } else {
+                int outerBonus = 10 + Math.min(40, (int) ((distance - 500.0) / 100.0));
+                level = Math.max(40, endRef + outerBonus);
+            }
+        } else if (env == World.Environment.NETHER) {
+            int distLv = 1 + (int) (distance / 50);
+            level = Math.min(avgLv + 10, Math.max(distLv, (int) (avgLv * 0.5)));
+        } else {
+            level = 1 + (int) (distance / 50);
+            if (level > avgLv + 10) {
+                level = avgLv + 10;
+            }
         }
         if (level < 1) level = 1;
 
@@ -354,7 +453,7 @@ public class MobManager {
             Compat.setAttributeBase(entity, Compat.MOVEMENT_SPEED, newSpeed);
         }
 
-        if (entity instanceof Skeleton) {
+        if (entity instanceof AbstractSkeleton || entity instanceof Silverfish) {
             Compat.setAttributeBase(entity, Compat.FOLLOW_RANGE, 100.0);
         }
 
@@ -393,12 +492,20 @@ public class MobManager {
         }
 
         applySpecificMobTraits(entity, level, gap);
+
+        if (entity.getWorld().getEnvironment() == World.Environment.THE_END
+                && !(entity instanceof Villager) && level >= 50) {
+            double curArmor = Compat.getAttributeBase(entity, Compat.ARMOR, 0.0);
+            double curTough = Compat.getAttributeBase(entity, Compat.ARMOR_TOUGHNESS, 0.0);
+            Compat.setAttributeBase(entity, Compat.ARMOR, Math.max(curArmor, Math.min(16.0, level * 0.08)));
+            Compat.setAttributeBase(entity, Compat.ARMOR_TOUGHNESS, Math.max(curTough, Math.min(10.0, level * 0.05)));
+        }
     }
 
     private void applySpecificMobTraits(LivingEntity entity, int level, int gap) {
         ItemManager itemManager = RPGPlugin.getInstance().getItemManager();
 
-        if (entity instanceof Skeleton) {
+        if (entity instanceof AbstractSkeleton) {
             Compat.setAttributeBase(entity, Compat.MOVEMENT_SPEED, 0.3);
             if (Compat.ATTACK_DAMAGE != null && entity.getAttribute(Compat.ATTACK_DAMAGE) != null) {
                 Compat.setAttributeBase(entity, Compat.ATTACK_DAMAGE, Compat.getAttributeBase(entity, Compat.ATTACK_DAMAGE, 2.0) * 1.5);
@@ -432,6 +539,8 @@ public class MobManager {
         } else if (entity instanceof Phantom) {
             Compat.setAttributeBase(entity, Compat.FLYING_SPEED, 1.5);
             Compat.setAttributeBase(entity, Compat.MOVEMENT_SPEED, 1.5);
+        } else if (entity instanceof Silverfish) {
+            Compat.setAttributeBase(entity, Compat.MOVEMENT_SPEED, 0.45);
         }
     }
 
